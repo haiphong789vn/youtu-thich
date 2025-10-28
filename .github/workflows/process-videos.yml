@@ -33,57 +33,19 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
           ffmpeg -version
-          pip install yt-dlp youtube-transcript-api
+          pip install yt-dlp
       
-      - name: Download from YouTube and upload to R2
+      - name: Process YouTube video
         env:
           VIDEO_ID: ${{ github.event.inputs.video_id }}
-          R2_PROCESSING_ACCESS_KEY: ${{ secrets.R2_PROCESSING_ACCESS_KEY }}
-          R2_PROCESSING_SECRET_KEY: ${{ secrets.R2_PROCESSING_SECRET_KEY }}
-          R2_PROCESSING_ENDPOINT: ${{ secrets.R2_PROCESSING_ENDPOINT }}
-          R2_PROCESSING_BUCKET: ${{ secrets.R2_PROCESSING_BUCKET }}
-        run: |
-          python .github/scripts/download_and_upload_to_r2.py
-      
-      - name: Download video and analysis from R2
-        env:
-          VIDEO_ID: ${{ github.event.inputs.video_id }}
-          R2_PROCESSING_ACCESS_KEY: ${{ secrets.R2_PROCESSING_ACCESS_KEY }}
-          R2_PROCESSING_SECRET_KEY: ${{ secrets.R2_PROCESSING_SECRET_KEY }}
-          R2_PROCESSING_ENDPOINT: ${{ secrets.R2_PROCESSING_ENDPOINT }}
-          R2_PROCESSING_BUCKET: ${{ secrets.R2_PROCESSING_BUCKET }}
-        run: |
-          python .github/scripts/download_from_r2.py
-      
-      - name: Extract video archive
-        env:
-          VIDEO_ID: ${{ github.event.inputs.video_id }}
-        run: |
-          mkdir -p downloads
-          unzip -o "temp/${VIDEO_ID}/${VIDEO_ID}.zip" -d downloads/
-          ls -lh downloads/
-      
-      - name: Process video with FFmpeg
-        env:
-          VIDEO_ID: ${{ github.event.inputs.video_id }}
-        run: |
-          python .github/scripts/process_with_ffmpeg.py
-      
-      - name: Upload shorts to R2
-        env:
-          VIDEO_ID: ${{ github.event.inputs.video_id }}
-          R2_ACCESS_KEY: ${{ secrets.R2_SHORTS_ACCESS_KEY }}
-          R2_SECRET_KEY: ${{ secrets.R2_SHORTS_SECRET_KEY }}
-          R2_ENDPOINT: ${{ secrets.R2_SHORTS_ENDPOINT }}
-          R2_BUCKET: ${{ secrets.R2_SHORTS_BUCKET }}
-          R2_PUBLIC_URL: ${{ secrets.R2_SHORTS_PUBLIC_URL }}
+          R2_SHORTS_ACCESS_KEY: ${{ secrets.R2_SHORTS_ACCESS_KEY }}
+          R2_SHORTS_SECRET_KEY: ${{ secrets.R2_SHORTS_SECRET_KEY }}
+          R2_SHORTS_ENDPOINT: ${{ secrets.R2_SHORTS_ENDPOINT }}
+          R2_SHORTS_BUCKET: ${{ secrets.R2_SHORTS_BUCKET }}
+          R2_SHORTS_PUBLIC_URL: ${{ secrets.R2_SHORTS_PUBLIC_URL }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          R2_PROCESSING_ACCESS_KEY: ${{ secrets.R2_PROCESSING_ACCESS_KEY }}
-          R2_PROCESSING_SECRET_KEY: ${{ secrets.R2_PROCESSING_SECRET_KEY }}
-          R2_PROCESSING_ENDPOINT: ${{ secrets.R2_PROCESSING_ENDPOINT }}
-          R2_PROCESSING_BUCKET: ${{ secrets.R2_PROCESSING_BUCKET }}
         run: |
-          python .github/scripts/upload_shorts_to_r2.py
+          python .github/scripts/process_youtube_video.py
       
       - name: Clean up
         if: always()
