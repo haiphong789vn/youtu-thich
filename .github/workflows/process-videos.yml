@@ -28,11 +28,22 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r .github/requirements.txt
       
-      - name: Install FFmpeg
+      - name: Install FFmpeg and yt-dlp
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
           ffmpeg -version
+          pip install yt-dlp youtube-transcript-api
+      
+      - name: Download from YouTube and upload to R2
+        env:
+          VIDEO_ID: ${{ github.event.inputs.video_id }}
+          R2_PROCESSING_ACCESS_KEY: ${{ secrets.R2_PROCESSING_ACCESS_KEY }}
+          R2_PROCESSING_SECRET_KEY: ${{ secrets.R2_PROCESSING_SECRET_KEY }}
+          R2_PROCESSING_ENDPOINT: ${{ secrets.R2_PROCESSING_ENDPOINT }}
+          R2_PROCESSING_BUCKET: ${{ secrets.R2_PROCESSING_BUCKET }}
+        run: |
+          python .github/scripts/download_and_upload_to_r2.py
       
       - name: Download video and analysis from R2
         env:
