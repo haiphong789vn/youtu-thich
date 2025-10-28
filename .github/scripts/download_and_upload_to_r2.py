@@ -11,7 +11,7 @@ import zipfile
 import boto3
 from botocore.exceptions import ClientError
 
-def download_youtube_video(video_id, output_dir):
+def download_youtube_video(video_id, output_dir, cookies_file=None):
     """Download video from YouTube using yt-dlp"""
     print(f"📥 Downloading video from YouTube: {video_id}")
     
@@ -29,8 +29,16 @@ def download_youtube_video(video_id, output_dir):
         '--write-info-json',
         '--write-description',
         '--write-thumbnail',
-        f'https://www.youtube.com/watch?v={video_id}'
     ]
+    
+    # Add cookies if available
+    if cookies_file and os.path.exists(cookies_file):
+        print(f"  Using cookies file: {cookies_file}")
+        cmd.extend(['--cookies', cookies_file])
+    else:
+        print(f"  ⚠️  No cookies file, may encounter bot detection")
+    
+    cmd.append(f'https://www.youtube.com/watch?v={video_id}')
     
     print(f"  Executing: {' '.join(cmd)}")
     
@@ -245,8 +253,23 @@ def main():
     temp_dir = f"temp/{video_id}"
     os.makedirs(temp_dir, exist_ok=True)
     
+    # Check for cookies file (in repository root or current directory)
+    cookies_file = None
+    possible_paths = ['youtube_cookies.txt', '.github/youtube_cookies.txt', '../youtube_cookies.txt']
+    for path in possible_paths:
+        if os.path.exists(path):
+            cookies_file = path
+            print(f"🍪 Found cookies file: {path}")
+            break
+    
+    if not cookies_file:
+        print(f"⚠️  No cookies file found. YouTube may block download.")
+        print(f"   Searched in: {', '.join(possible_paths)}")
+    
+    print()
+    
     # Step 1: Download from YouTube
-    video_file = download_youtube_video(video_id, temp_dir)
+    video_file = download_youtube_video(video_id, temp_dir, cookies_file)
     if not video_file:
         print("❌ Failed to download video")
         sys.exit(1)
