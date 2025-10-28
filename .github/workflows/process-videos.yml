@@ -1,6 +1,7 @@
-name: Process Videos
+name: Process Videos with FFmpeg
 
 on:
+  # Manual trigger via API or web interface
   workflow_dispatch:
     inputs:
       video_id:
@@ -9,47 +10,77 @@ on:
         type: string
 
 jobs:
-  process:
+  process-video:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v3
       
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r .github/requirements.txt
       
       - name: Install FFmpeg
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
+          ffmpeg -version
       
-      - name: Install dependencies
+      - name: Download video and analysis from R2
+        env:
+          VIDEO_ID: ${{ github.event.inputs.video_id }}
+          R2_PROCESSING_ACCESS_KEY: ${{ secrets.R2_PROCESSING_ACCESS_KEY }}
+          R2_PROCESSING_SECRET_KEY: ${{ secrets.R2_PROCESSING_SECRET_KEY }}
+          R2_PROCESSING_ENDPOINT: ${{ secrets.R2_PROCESSING_ENDPOINT }}
+          R2_PROCESSING_BUCKET: ${{ secrets.R2_PROCESSING_BUCKET }}
         run: |
-          pip install boto3 requests psycopg2-binary sqlalchemy
+          python .github/scripts/download_from_r2.py
       
-      - name: Download from R2 Processing
-        env:
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_PROCESSING_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_PROCESSING_SECRET_ACCESS_KEY }}
-          R2_ENDPOINT: ${{ secrets.R2_PROCESSING_ENDPOINT }}
-          R2_BUCKET: ${{ secrets.R2_PROCESSING_BUCKET }}
-          VIDEO_ID: ${{ github.event.inputs.video_id }}
-        run: python .github/scripts/download_from_r2.py
-      
-      - name: Process with FFmpeg
+      - name: Extract video archive
         env:
           VIDEO_ID: ${{ github.event.inputs.video_id }}
-        run: python .github/scripts/process_with_ffmpeg.py
+        run: |
+          mkdir -p downloads
+          unzip -o "temp/${VIDEO_ID}/${VIDEO_ID}.zip" -d downloads/
+          ls -lh downloads/
+      
+      - name: Process video with FFmpeg
+        env:
+          VIDEO_ID: ${{ github.event.inputs.video_id }}
+        run: |
+          python .github/scripts/process_with_ffmpeg.py
       
       - name: Upload shorts to R2
         env:
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_SHORTS_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SHORTS_SECRET_ACCESS_KEY }}
+          VIDEO_ID: ${{ github.event.inputs.video_id }}
+          R2_ACCESS_KEY: ${{ secrets.R2_SHORTS_ACCESS_KEY }}
+          R2_SECRET_KEY: ${{ secrets.R2_SHORTS_SECRET_KEY }}
           R2_ENDPOINT: ${{ secrets.R2_SHORTS_ENDPOINT }}
           R2_BUCKET: ${{ secrets.R2_SHORTS_BUCKET }}
+          R2_PUBLIC_URL: ${{ secrets.R2_SHORTS_PUBLIC_URL }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          VIDEO_ID: ${{ github.event.inputs.video_id }}
-        run: python .github/scripts/upload_shorts_to_r2.py
+          R2_PROCESSING_ACCESS_KEY: ${{ secrets.R2_PROCESSING_ACCESS_KEY }}
+          R2_PROCESSING_SECRET_KEY: ${{ secrets.R2_PROCESSING_SECRET_KEY }}
+          R2_PROCESSING_ENDPOINT: ${{ secrets.R2_PROCESSING_ENDPOINT }}
+          R2_PROCESSING_BUCKET: ${{ secrets.R2_PROCESSING_BUCKET }}
+        run: |
+          python .github/scripts/upload_shorts_to_r2.py
+      
+      - name: Clean up
+        if: always()
+        run: |
+          rm -rf temp/ downloads/ shorts/
+          echo "Cleanup completed"
+      
+      - name: Summary
+        run: |
+          echo "✅ Video processing completed for: ${{ github.event.inputs.video_id }}"
+          echo "Check the logs above for detailed information"
